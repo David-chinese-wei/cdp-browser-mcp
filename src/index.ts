@@ -61,9 +61,9 @@ function parseArgs(argv: string[]): CliArgs {
 
 function usage(version: string): string {
   return [
-    `browser-devtools-mcp v${version}`,
+    `cdp-browser-mcp v${version}`,
     '',
-    '用法：browser-devtools-mcp [选项]',
+    '用法：cdp-browser-mcp [选项]',
     '',
     '选项：',
     '  -t, --transport <stdio|http>  传输方式，默认 stdio',
@@ -121,7 +121,7 @@ async function runHttp(version: string, args: CliArgs): Promise<void> {
         res.writeHead(400, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ error: 'POST required to start a session' }));
       } catch (err) {
-        console.error('[browser-devtools-mcp] 处理 HTTP 请求失败:', err);
+        console.error('[cdp-browser-mcp] 处理 HTTP 请求失败:', err);
         if (!res.headersSent) {
           res.writeHead(500, { 'content-type': 'application/json' });
           res.end(JSON.stringify({ error: 'internal error' }));
@@ -135,7 +135,7 @@ async function runHttp(version: string, args: CliArgs): Promise<void> {
     httpServer.listen(args.port, args.host, () => resolvePromise());
   });
 
-  console.error(`[browser-devtools-mcp] HTTP 传输已启动：http://${args.host}:${args.port}/mcp`);
+  console.error(`[cdp-browser-mcp] HTTP 传输已启动：http://${args.host}:${args.port}/mcp`);
 
   const shutdown = (): void => {
     for (const transport of sessions.values()) transport.close();
@@ -163,6 +163,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  console.error('[browser-devtools-mcp] 启动失败:', err);
+  console.error('[cdp-browser-mcp] 启动失败:', err);
   process.exit(1);
 });

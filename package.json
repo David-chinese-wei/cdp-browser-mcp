@@ -1,11 +1,11 @@
 {
-  "name": "browser-devtools-mcp",
+  "name": "cdp-browser-mcp",
   "version": "0.1.0",
   "description": "MCP server that lets an AI assistant inspect running browsers over the Chrome DevTools Protocol: enumerate browser processes, capture console logs, network traffic, DOM, performance metrics, and save everything in one shot.",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "browser-devtools-mcp": "dist/index.js"
+    "cdp-browser-mcp": "dist/index.js"
   },
   "engines": {
     "node": ">=18.17"

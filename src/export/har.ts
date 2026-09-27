@@ -94,7 +94,7 @@ export function buildHar(data: CapturedData, version = '0.1.0'): HarLike {
   return {
     log: {
       version: '1.2',
-      creator: { name: 'browser-devtools-mcp', version },
+      creator: { name: 'cdp-browser-mcp', version },
       browser: data.meta.browser
         ? { name: data.meta.browser, version: data.meta.browserVersion ?? '' }
         : undefined,

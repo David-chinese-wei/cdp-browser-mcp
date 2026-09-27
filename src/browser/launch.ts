@@ -241,11 +241,11 @@ function removeProfile(instance: ManagedInstance): void {
 function isManagedProfile(dir: string): boolean {
   const target = resolve(dir);
   const root = resolve(tmpdir());
-  return target.startsWith(root) && target.includes('browser-devtools-mcp');
+  return target.startsWith(root) && target.includes('cdp-browser-mcp');
 }
 
 function createProfileDir(): string {
-  const dir = join(tmpdir(), 'browser-devtools-mcp', `profile-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const dir = join(tmpdir(), 'cdp-browser-mcp', `profile-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
   mkdirSync(dir, { recursive: true });
   return dir;
 }

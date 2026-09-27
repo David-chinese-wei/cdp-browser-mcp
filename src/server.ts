@@ -25,7 +25,7 @@ export interface ServerBundle {
 export function createServer(options: CreateServerOptions = {}): ServerBundle {
   const hub = options.hub ?? new BrowserHub({ captureRoot: options.captureRoot });
   const server = new McpServer(
-    { name: 'browser-devtools-mcp', version: options.version ?? '0.1.0' },
+    { name: 'cdp-browser-mcp', version: options.version ?? '0.1.0' },
     { capabilities: { tools: {}, prompts: {}, logging: {} } },
   );
 
