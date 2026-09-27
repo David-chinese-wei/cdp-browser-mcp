@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>静态资源测试站 · Static Asset Test</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --text: #1b1f27;
+    --muted: #6b7280;
+    --line: #e3e6ec;
+    --accent: #0e7490;
+    --accent-soft: #e0f2f1;
+    --code-bg: #f3f4f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1218;
+      --panel: #171b23;
+      --text: #e7eaee;
+      --muted: #96a0b0;
+      --line: #262c37;
+      --accent: #5eead4;
+      --accent-soft: #13322f;
+      --code-bg: #10141b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+    line-height: 1.65;
+  }
+  header {
+    padding: 40px 24px 28px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  h1 { margin: 0 0 8px; font-size: 26px; letter-spacing: .5px; }
+  .sub { color: var(--muted); font-size: 14px; }
+  .badges { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .badge {
+    font-size: 12px; padding: 4px 10px; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent);
+    border: 1px solid var(--line);
+  }
+  main { padding: 28px 24px 64px; }
+  section { margin-bottom: 36px; }
+  h2 {
+    font-size: 17px; margin: 0 0 14px; padding-left: 10px;
+    border-left: 3px solid var(--accent); line-height: 1.2;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .img-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  figure { margin: 0; }
+  figure img {
+    width: 100%; display: block; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--code-bg);
+  }
+  figcaption { font-size: 12.5px; color: var(--muted); margin-top: 6px; word-break: break-all; }
+  figcaption a { color: var(--accent); text-decoration: none; }
+  figcaption a:hover { text-decoration: underline; }
+  .audio-row { display: flex; flex-direction: column; gap: 14px; }
+  .audio-item span { font-size: 13px; color: var(--muted); display: block; margin-bottom: 4px; word-break: break-all; }
+  audio { width: 100%; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .4px; }
+  td a { color: var(--accent); text-decoration: none; }
+  td a:hover { text-decoration: underline; }
+  .size { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 14px; overflow-x: auto; font-size: 13px; margin: 0;
+    white-space: pre-wrap; word-break: break-word;
+    max-height: 320px;
+  }
+  .tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .tab {
+    cursor: pointer; font-size: 13px; padding: 6px 14px; border-radius: 999px;
+    border: 1px solid var(--line); background: transparent; color: var(--muted);
+  }
+  .tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  @media (prefers-color-scheme: dark) { .tab.active { color: #06251f; } }
+  footer { color: var(--muted); font-size: 12.5px; text-align: center; padding: 0 24px 40px; }
+  .err { color: #dc2626; font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>静态资源测试站</h1>
+    <div class="sub">HTML / 图片 / 音频 / TXT / Markdown —— 用于公网访问与下载链路验证，无任何加密与鉴权。</div>
+    <div class="badges">
+      <span class="badge">静态托管</span>
+      <span class="badge">无需登录</span>
+      <span class="badge">支持 Range 断点下载</span>
+      <span class="badge" id="stamp"></span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section>
+    <h2>图片 PNG</h2>
+    <div class="img-grid">
+      <figure>
+        <img src="images/banner.png" alt="渐变横幅 banner.png" loading="lazy">
+        <figcaption><strong>banner.png</strong> · 1280×420 渐变光环 · <a href="images/banner.png" target="_blank" rel="noopener">打开原图</a></figcaption>
+      </figure>
+      <figure>
+        <img src="images/grid.png" alt="色彩网格 grid.png" loading="lazy">
+        <figcaption><strong>grid.png</strong> · 720×720 色块网格 · <a href="images/grid.png" target="_blank" rel="noopener">打开原图</a></figcaption>
+      </figure>
+      <figure>
+        <img src="images/waves.png" alt="波形 waves.png" loading="lazy">
+        <figcaption><strong>waves.png</strong> · 960×480 正弦叠波 · <a href="images/waves.png" target="_blank" rel="noopener">打开原图</a></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>音频 WAV</h2>
+    <div class="card audio-row">
+      <div class="audio-item">
+        <span>tone-440hz.wav · 单音 440Hz · 3 秒</span>
+        <audio controls preload="metadata" src="audio/tone-440hz.wav"></audio>
+      </div>
+      <div class="audio-item">
+        <span>chime.wav · 五音琶音 C5-E5-G5-C6-E6 · 3.2 秒</span>
+        <audio controls preload="metadata" src="audio/chime.wav"></audio>
+      </div>
+      <div class="audio-item">
+        <span>sweep.wav · 200Hz→2400Hz 指数扫频 · 5 秒</span>
+        <audio controls preload="metadata" src="audio/sweep.wav"></audio>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>文本文件在线读取</h2>
+    <div class="card">
+      <div class="tabs">
+        <button class="tab active" data-file="sample.txt">sample.txt</button>
+        <button class="tab" data-file="notes.md">notes.md</button>
+        <button class="tab" data-file="data.json">data.json</button>
+      </div>
+      <pre id="viewer">加载中…</pre>
+    </div>
+  </section>
+
+  <section>
+    <h2>全部文件清单</h2>
+    <div class="card">
+      <table id="files">
+        <thead><tr><th>文件</th><th>类型</th><th style="text-align:right">大小</th></tr></thead>
+        <tbody><tr><td colspan="3">大小统计中…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<footer>纯静态资源，无任何鉴权与加密 —— 仅用于穿透 / 托管链路验证。</footer>
+
+<script>
+document.getElementById('stamp').textContent = '页面加载 ' + new Date().toLocaleString('zh-CN');
+
+const viewer = document.getElementById('viewer');
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadFile(btn.dataset.file);
+  });
+});
+
+function loadFile(name) {
+  viewer.textContent = '加载中…';
+  fetch(name, { cache: 'no-store' })
+    .then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    })
+    .then(txt => { viewer.textContent = txt; })
+    .catch(e => { viewer.innerHTML = '<span class="err">读取失败：' + e.message + '</span>'; });
+}
+loadFile('sample.txt');
+
+const FILES = [
+  ['index.html',            'text/html'],
+  ['sample.txt',            'text/plain'],
+  ['notes.md',              'text/markdown'],
+  ['data.json',             'application/json'],
+  ['images/banner.png',     'image/png'],
+  ['images/grid.png',       'image/png'],
+  ['images/waves.png',      'image/png'],
+  ['audio/tone-440hz.wav',  'audio/wav'],
+  ['audio/chime.wav',       'audio/wav'],
+  ['audio/sweep.wav',       'audio/wav'],
+];
+
+function human(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+  return (n / 1024 / 1024).toFixed(2) + ' MB';
+}
+
+Promise.all(FILES.map(([p, mime]) =>
+  fetch(p, { method: 'HEAD' })
+    .then(r => ({ p, mime, size: Number(r.headers.get('content-length') || 0) }))
+    .catch(() => ({ p, mime, size: -1 }))
+)).then(rows => {
+  document.querySelector('#files tbody').innerHTML = rows.map(r => `
+    <tr>
+      <td><a href="${r.p}" target="_blank" rel="noopener">${r.p}</a></td>
+      <td style="color:var(--muted)">${r.mime}</td>
+      <td class="size">${r.size < 0 ? '—' : human(r.size)}</td>
+    </tr>`).join('');
+});
+</script>
+</body>
+</html>

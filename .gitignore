@@ -1,0 +1,21 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# capture output
+captures/
+.captures/
+
+# local profiles launched by this server
+.browser-profiles/
+
+.env
+.env.local
+.DS_Store
+*.log
+npm-debug.log*
+.vscode/
+.idea/
+
+# WorkBuddy design canvas artifacts
+*.genie

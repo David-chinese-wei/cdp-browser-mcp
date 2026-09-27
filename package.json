@@ -1,0 +1,60 @@
+{
+  "name": "browser-devtools-mcp",
+  "version": "0.1.0",
+  "description": "MCP server that lets an AI assistant inspect running browsers over the Chrome DevTools Protocol: enumerate browser processes, capture console logs, network traffic, DOM, performance metrics, and save everything in one shot.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "browser-devtools-mcp": "dist/index.js"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json --watch",
+    "start": "node dist/index.js",
+    "dev": "tsc -p tsconfig.json && node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "smoke": "node scripts/smoke.mjs",
+    "smoke:chrome": "node scripts/smoke.mjs --browser=chrome",
+    "smoke:edge": "node scripts/smoke.mjs --browser=edge",
+    "acceptance": "node scripts/smoke-edge.mjs",
+    "acceptance:edge": "node scripts/smoke-edge.mjs edge",
+    "verify:site": "node scripts/verify-site.mjs https://static-asset-test.app.workbuddy.host/ ./site edge",
+    "verify:sources": "node scripts/verify-sources.mjs https://static-asset-test.app.workbuddy.host/ ./site edge",
+    "verify:sources:chrome": "node scripts/verify-sources.mjs https://static-asset-test.app.workbuddy.host/ ./site chrome",
+    "acceptance:chrome": "node scripts/smoke-edge.mjs chrome",
+    "inspect": "node dist/index.js --transport http --port 8931"
+  },
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol",
+    "chrome-devtools-protocol",
+    "cdp",
+    "devtools",
+    "browser",
+    "console",
+    "network",
+    "har",
+    "ai",
+    "llm"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "ws": "^8.18.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.7.2"
+  }
+}

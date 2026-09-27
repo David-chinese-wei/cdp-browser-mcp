@@ -1,0 +1,44 @@
+{
+  "name": "static-asset-test-site",
+  "description": "用于验证公网访问链路的静态资源集合（图片 / 音频 / 文本 / Markdown / JSON）",
+  "version": "1.0.0",
+  "auth": "none",
+  "encrypted": false,
+  "meta": {
+    "charset": "UTF-8",
+    "notes": "所有资源均可匿名直读，支持 Range 请求"
+  },
+  "assets": {
+    "images": [
+      { "path": "images/banner.png", "width": 1280, "height": 420, "type": "image/png" },
+      { "path": "images/grid.png",   "width": 720,  "height": 720, "type": "image/png" },
+      { "path": "images/waves.png",  "width": 960,  "height": 480, "type": "image/png" }
+    ],
+    "audio": [
+      { "path": "audio/tone-440hz.wav", "duration_sec": 3.0,  "sample_rate": 44100, "type": "audio/wav" },
+      { "path": "audio/chime.wav",      "duration_sec": 3.2,  "sample_rate": 44100, "type": "audio/wav" },
+      { "path": "audio/sweep.wav",      "duration_sec": 5.0,  "sample_rate": 44100, "type": "audio/wav" }
+    ],
+    "documents": [
+      { "path": "index.html",  "type": "text/html" },
+      { "path": "sample.txt",  "type": "text/plain" },
+      { "path": "notes.md",    "type": "text/markdown" },
+      { "path": "data.json",   "type": "application/json" }
+    ]
+  },
+  "endpoints": [
+    { "method": "GET", "path": "/",                     "desc": "入口页" },
+    { "method": "GET", "path": "/sample.txt",           "desc": "纯文本直读" },
+    { "method": "GET", "path": "/notes.md",             "desc": "Markdown 源文件" },
+    { "method": "GET", "path": "/data.json",            "desc": "本文件" },
+    { "method": "GET", "path": "/images/banner.png",    "desc": "图片直链" },
+    { "method": "GET", "path": "/audio/sweep.wav",      "desc": "音频直链，可测 Range" }
+  ],
+  "checklist": [
+    "图片能否在公网加载",
+    "音频能否播放且进度条可拖动",
+    "txt / md 源码是否保持 UTF-8 不乱码",
+    "curl -I 是否返回正确的 Content-Type",
+    "curl -r 是否返回 206 Partial Content"
+  ]
+}
