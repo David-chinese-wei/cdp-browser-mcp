@@ -174,3 +174,9 @@ npm run acceptance:edge  # Edge 专项：有头模式、进程枚举识别 msedg
 - **Opera / Brave**：本机安装均 `exit -1`（权限），未测试。
 - **360 浏览器**：按用户要求排除。
 - 清理了临时探针：`scripts/probe-vivaldi*.mjs` 为诊断脚本，结论已记入本文档与 memory。
+
+## 发布（2026-09-27 晚）
+
+- 用户以 granular access token（bypass 2FA）授权，`npm publish` 成功：**`cdp-browser-mcp@0.1.0`**（tarball `ad11eac0…`，122.2 kB / 75 文件，仅含 dist/README/LICENSE/package.json）。
+- 线上验证：`npm view cdp-browser-mcp` 正常返回；干净目录 `npm install cdp-browser-mcp` 安装成功，bin `cdp-browser-mcp` 可用。
+- 注意：原 `browser-devtools-mcp` 名已被占（废弃包），故改名发布。
