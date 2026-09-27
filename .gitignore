@@ -19,3 +19,7 @@ npm-debug.log*
 
 # WorkBuddy design canvas artifacts
 *.genie
+
+# internal / private — never publish to the public repo
+.workbuddy/
+context/
