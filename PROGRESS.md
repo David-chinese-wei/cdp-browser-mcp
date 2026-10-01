@@ -1,6 +1,6 @@
 # 开发进度
 
-> 最后更新：2026-09-28 10:30
+> 最后更新：2026-10-01
 > 状态：**已完成并可运行，支持实时订阅，并补齐了 Sources 面板视角** —— 43 个工具全部接通。`typecheck` / `build` 全绿；**Chrome 与 Edge 双浏览器端到端冒烟均通过**，Edge 另有有头模式专项验收（`npm run acceptance:edge`）。
 >
 > 本轮针对 `https://static-asset-test.app.workbuddy.host/` 做了两轮核对，均为 0 失败：
