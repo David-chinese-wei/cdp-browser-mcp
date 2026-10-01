@@ -1,7 +1,7 @@
 # 开发进度
 
-> 最后更新：2026-09-27 14:45
-> 状态：**已完成并可运行，支持实时订阅，并补齐了 Sources 面板视角** —— 36 个工具全部接通。`typecheck` / `build` 全绿；**Chrome 与 Edge 双浏览器端到端冒烟均通过**，Edge 另有有头模式专项验收（`npm run acceptance:edge`）。
+> 最后更新：2026-09-28 10:30
+> 状态：**已完成并可运行，支持实时订阅，并补齐了 Sources 面板视角** —— 43 个工具全部接通。`typecheck` / `build` 全绿；**Chrome 与 Edge 双浏览器端到端冒烟均通过**，Edge 另有有头模式专项验收（`npm run acceptance:edge`）。
 >
 > 本轮针对 `https://static-asset-test.app.workbuddy.host/` 做了两轮核对，均为 0 失败：
 > - `npm run verify:site` —— 抓取内容与本地 `site/` 目录逐文件 SHA-256 + UTF-8 逐字符比对。
@@ -30,7 +30,7 @@
 - TypeScript / Node.js（ESM、Node16 模块解析、strict）
 - 依赖：`@modelcontextprotocol/sdk` ^1.0.4（实际装 1.30.1）、`ws`、`zod`（实际 3.25.76）
 - CDP 传输自研轻量 WebSocket 客户端，不引 puppeteer / playwright
-- 连接策略：附加已有浏览器（扫描 9222–9235）+ 自动启动独立 profile 实例
+- 连接策略：附加已有浏览器（扫描 9222–9400）+ 自动启动独立 profile 实例
 
 ## 文件清单
 
@@ -180,3 +180,40 @@ npm run acceptance:edge  # Edge 专项：有头模式、进程枚举识别 msedg
 - 用户以 granular access token（bypass 2FA）授权，`npm publish` 成功：**`cdp-browser-mcp@0.1.0`**（tarball `ad11eac0…`，122.2 kB / 75 文件，仅含 dist/README/LICENSE/package.json）。
 - 线上验证：`npm view cdp-browser-mcp` 正常返回；干净目录 `npm install cdp-browser-mcp` 安装成功，bin `cdp-browser-mcp` 可用。
 - 注意：原 `browser-devtools-mcp` 名已被占（废弃包），故改名发布。
+
+## 本轮：补齐"真实运行时交互"能力（2026-09-28）
+
+用户读源码后给出差距清单（P0/P1/P2），要求"有问题修吧"。已完成 P0 + P1，并顺带实现 P2 里的 `page_reload` / `page_back`。工具数 36 → 43（+7：`cdp_send` / `page_click` / `page_key` / `page_type` / `page_wait_for` / `page_reload` / `page_back`）。
+
+新增/改动：
+- **`cdp_send`**：任意 CDP 命令透传，支持 `browserLevel`（发往浏览器根，不带 sessionId）。一次性解锁 `Emulation.*` / `Page.bringToFront` / `DOM.focus` 等未单独封装的能力。
+- **`page_click` / `page_key` / `page_type`**：走真正的 `Input.dispatchMouseEvent` / `Input.dispatchKeyEvent` / `Input.insertText`（真实输入管线事件），而非页内 `dispatchEvent` 合成事件——后者被游戏/Canvas/视频忽略。
+- **`page_wait_for`**：轮询直到选择器出现 / 文本包含 / JS 表达式为真。
+- **`page_reload` / `page_back`**：`Page.reload` / `history.back()`。
+- **`browser_launch` / `browser_connect` 暴露 `emulateVisible`**：让无头页面保持"活跃"生命周期，rAF / 游戏循环不被冻结。
+- **`page_evaluate` 暴露 `timeoutMs`**（默认 30000）。
+- **端口探测范围 9222–9235 → 9222–9400**（`pickFreePort` 改为区间扫描）。
+
+### ⚠️ 关键发现：Chrome 154 移除了 `Emulation.setPageVisibilityOverride`
+
+本地 Chrome 实测版本 **154.0.8037.92**。逐一探测后确认：
+- `Emulation.setPageVisibilityOverride` → **`wasn't found`**（已从协议移除）
+- `Emulation.enable` → **`wasn't found`**（该域本来就无 `enable` 命令；原先 `enableDomain('Emulation')` 发的就是个不存在的命令，只是被静默吞掉成了 warning 噪声）
+- `Emulation.setVisibilityState` → 不存在
+- 但 `Emulation` 域本身仍在：`setEmulatedMedia` / `setDeviceMetricsOverride` / `setFocusEmulationEnabled` / `setCPUThrottlingRate` / `setVirtualTimePolicy` / `setIdleOverride` / `setScrollbarsHidden` 全部可达。
+- 受支持的可见性等价替代是 **`Page.setWebLifecycleState({ state: 'active' })`**（FOUND），它把页面钉在 active 生命周期，避免被冻结/节流。
+
+因此 `emulateVisible` 的实现改为：会话 attach 时调用 `Page.setWebLifecycleState({state:'active'})`；`browser_launch` 在 `emulateVisible` 时额外加 `--disable-backgrounding-occluded-windows`（已有 `--disable-renderer-backgrounding` / `--disable-background-timer-throttling`）。本机 Chrome 154 无头下 `document.visibilityState` 本来就报告 `visible`，但加这两层保证真实游戏/Canvas 的 rAF 不被挂起。
+
+### 验证
+
+- `scripts/verify-interaction.mjs`（新增集成测试）：启动无头 Chrome + `emulateVisible`，构建记录真实事件的页内探针，逐项验证 → **6/6 通过**（visibilityState 可见、`cdp_send` 返回对象、`page_click` 在 (30,30) 派发真实鼠标、`page_key` 发出 keydown/keyup 且 code=KeyD、`page_type` 输入 "hello"、`page_wait_for` 命中 predicate）。
+- 注意测试探针的坑：原先用 `document.open();document.write('<script>...')` 注入监听器，但在已加载的 about:blank 上**内联 `<script>` 不会执行**，导致监听器从未挂载、事件全部丢失。改为用 DOM API 直接 `document.body.innerHTML=...` + `addEventListener` 后，全部通过。
+- `npm run build` 全绿（tsc 0 错误）。
+
+### 遗留 / 可选（用户原 P2，本次未做）
+
+- `page_drag`（拖拽）
+- `network_block` / `network_mock`（Network domain 拦截与桩数据）
+- `page_screenshot` 的 `clip` 参数（裁剪区域）
+- 这些可按需再加；已实现的 `cdp_send` 已能直接发 `Network.setBlockedURLs` / `Page.captureScreenshot({clip})` 等命令作为临时手段。

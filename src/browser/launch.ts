@@ -24,8 +24,10 @@ export interface LaunchOptions {
   args?: string[];
   /** Keep the temporary profile on disk after close. Default false. */
   keepProfile?: boolean;
-  /** Milliseconds to wait for the DevTools endpoint. Default 20000. */
+  /** Milliseconds to wait for the DevTools endpoint. Default 30000. */
   timeoutMs?: number;
+  /** Keep the page active/visible so headless still runs rAF and game loops: adds anti-backgrounding flags and the session calls Page.setWebLifecycleState({state:'active'}). */
+  emulateVisible?: boolean;
 }
 
 export interface LaunchedBrowser {
@@ -109,6 +111,7 @@ export class BrowserLauncher {
       '--metrics-recording-only',
       '--mute-audio',
       '--window-size=1440,900',
+      ...(options.emulateVisible ? ['--disable-backgrounding-occluded-windows'] : []),
       ...(options.headless ? ['--headless=new'] : []),
       ...(options.args ?? []),
     ];
@@ -122,7 +125,7 @@ export class BrowserLauncher {
     child.unref();
 
     const pid = child.pid ?? -1;
-    const deadline = Date.now() + (options.timeoutMs ?? 20_000);
+    const deadline = Date.now() + (options.timeoutMs ?? 30_000);
     let webSocketDebuggerUrl = '';
 
     while (Date.now() < deadline) {
@@ -250,12 +253,11 @@ function createProfileDir(): string {
   return dir;
 }
 
-async function pickFreePort(host: string, from = 9222, attempts = 60): Promise<number> {
-  for (let i = 0; i < attempts; i++) {
-    const port = from + i;
+async function pickFreePort(host: string, from = 9222, to = 9400): Promise<number> {
+  for (let port = from; port <= to; port++) {
     if (await isPortFree(port, host)) return port;
   }
-  throw new Error('No free debugging port found');
+  throw new Error(`No free debugging port found in range ${from}-${to}`);
 }
 
 function isPortFree(port: number, host: string): Promise<boolean> {

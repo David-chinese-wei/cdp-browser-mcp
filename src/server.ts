@@ -5,6 +5,7 @@ import { serializeEvent, type Subscription } from './live/manager.js';
 import { registerBrowserTools } from './tools/browser.js';
 import { registerCaptureTools } from './tools/capture.js';
 import { registerContentTools } from './tools/content.js';
+import { registerInteractionTools } from './tools/interaction.js';
 import { registerLiveTools } from './tools/live.js';
 
 /** Notification method used to push live events towards the client. */
@@ -31,6 +32,7 @@ export function createServer(options: CreateServerOptions = {}): ServerBundle {
 
   registerBrowserTools(server, hub);
   registerContentTools(server, hub);
+  registerInteractionTools(server, hub);
   registerCaptureTools(server, hub);
   registerLiveTools(server, hub);
   wireLivePush(server, hub);

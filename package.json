@@ -1,6 +1,6 @@
 {
   "name": "cdp-browser-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server that lets an AI assistant inspect running browsers over the Chrome DevTools Protocol: enumerate browser processes, capture console logs, network traffic, DOM, performance metrics, and save everything in one shot.",
   "type": "module",
   "main": "dist/index.js",
@@ -28,6 +28,7 @@
     "acceptance:edge": "node scripts/smoke-edge.mjs edge",
     "verify:site": "node scripts/verify-site.mjs https://static-asset-test.app.workbuddy.host/ ./site edge",
     "verify:sources": "node scripts/verify-sources.mjs https://static-asset-test.app.workbuddy.host/ ./site edge",
+    "verify:interaction": "node scripts/verify-interaction.mjs",
     "verify:sources:chrome": "node scripts/verify-sources.mjs https://static-asset-test.app.workbuddy.host/ ./site chrome",
     "acceptance:chrome": "node scripts/smoke-edge.mjs chrome",
     "inspect": "node dist/index.js --transport http --port 8931"

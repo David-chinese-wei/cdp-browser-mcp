@@ -21,6 +21,8 @@ export interface ConnectOptions {
   storeLimits?: { maxConsole?: number; maxNetwork?: number; maxErrors?: number };
   /** Capture every page target that appears, not only the active one. */
   watchAllTargets?: boolean;
+  /** Keep the page active/visible (Page.setWebLifecycleState + anti-backgrounding flags) so headless runs rAF / game loops. */
+  emulateVisible?: boolean;
 }
 
 export interface ConnectResult {
@@ -116,9 +118,9 @@ export class BrowserHub {
       } else {
         const all = await discoverBrowsers({ host });
         if (!all.length) {
-          throw new Error(
-            `没有发现带调试端口的浏览器（已扫描 ${host} 的 9222–9235）。可用 browser_launch 启动一个可附加实例。`,
-          );
+        throw new Error(
+          `没有发现带调试端口的浏览器（已扫描 ${host} 的 9222–9400）。可用 browser_launch 启动一个可附加实例。`,
+        );
         }
         discovered = all[0];
       }
@@ -162,6 +164,7 @@ export class BrowserHub {
       timeoutMs: options.timeoutMs,
       storeLimits: options.storeLimits,
       watchAllTargets: options.watchAllTargets,
+      emulateVisible: options.emulateVisible,
     });
 
     this.session = session;
@@ -193,6 +196,7 @@ export class BrowserHub {
         host: launched.host,
         targetId: options.targetId,
         watchAllTargets: options.watchAllTargets,
+        emulateVisible: options.emulateVisible,
       });
     }
     return launched;

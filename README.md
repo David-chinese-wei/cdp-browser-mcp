@@ -14,7 +14,7 @@ It uses a single lightweight WebSocket client to multiplex every tab. No puppete
 
 | Browser | Supported | Notes |
 | --- | --- | --- |
-| Google Chrome | ✅ Yes | Verified (Chrome 153.x) |
+| Google Chrome | ✅ Yes | Verified (Chrome 154.x) |
 | Microsoft Edge | ✅ Yes | Verified (Edg 140.x); identical to Chrome on CDP |
 | Vivaldi / Brave / Opera / Chromium | ❌ No | Not supported (see below) |
 | Firefox / Safari | ❌ No | Not supported (see below) |
@@ -30,7 +30,7 @@ Edge and Chrome are fully equivalent — same protocol, same events. Microsoft E
 >
 > | 浏览器 | 是否支持 | 说明 |
 > | --- | --- | --- |
-> | Google Chrome | ✅ 支持 | 已验证（Chrome 153.x） |
+> | Google Chrome | ✅ 支持 | 已验证（Chrome 154.x） |
 > | Microsoft Edge | ✅ 支持 | 已验证（Edg 140.x），CDP 上与 Chrome 完全等价 |
 > | Vivaldi / Brave / Opera / Chromium | ❌ 不支持 | 见下方说明 |
 > | Firefox / Safari | ❌ 不支持 | 见下方说明 |
@@ -54,6 +54,7 @@ Edge and Chrome are fully equivalent — same protocol, same events. Microsoft E
 | Network | Request & response headers, POST body, timing, initiator, cache hit; response body on demand |
 | Errors | Uncaught exceptions, `console.error`, logged errors, renderer crashes — with URL and stack |
 | Page | DOM snapshot (HTML + LLM-friendly indented outline), run JS, screenshot, performance metrics, Cookies / localStorage / IndexedDB |
+| Interaction | Raw CDP pass-through (`cdp_send`), real mouse/keyboard/text input via the `Input` domain (honoured by games/canvas/video), wait-for-selector/text, reload/back navigation |
 | One-shot save | `session.json`, `console.json`, `console.csv`, `network.har`, `network.csv`, `metrics.json`, `storage.json`, `dom.html`, `dom-outline.txt`, `screenshot.png`, `report.html`, `summary.md`, `manifest.json` |
 | **Live** | Subscribe to an event stream: console / every network phase / exceptions / navigation / tab add-remove / performance samples / **page screen frames**; consume via long-poll or server push, or record continuously to disk JSONL |
 
@@ -69,6 +70,7 @@ The exported HAR imports cleanly into Chrome DevTools / Charles / Fiddler; `repo
 > | 网络 | 请求与响应头、POST body、timing、initiator、缓存命中；按需取响应体 |
 > | 错误 | 未捕获异常、console.error、日志错误、渲染进程崩溃（含 URL 与调用栈） |
 > | 页面 | DOM 快照（HTML + 适合 LLM 的大纲）、执行 JS、截图、性能指标、Cookies / localStorage / IndexedDB |
+> | 交互 | 任意 CDP 命令透传（`cdp_send`）、通过 `Input` 域的真实鼠标/键盘/文本输入（游戏/Canvas/视频可识别）、等待选择器/文本、刷新/后退导航 |
 > | 一键保存 | 见上 13 类产物（HAR / CSV / HTML 报告等） |
 > | **实时** | 订阅事件流：console / 网络各阶段 / 异常 / 导航 / 标签页增减 / 性能采样 / **页面画面帧**；可长轮询或推送消费，或持续录制到磁盘 JSONL |
 >
@@ -237,6 +239,10 @@ Channel reference:
 **Content capture**: `console_read`, `console_clear`, `network_list`, `network_detail`, `network_body`, `network_clear`, `resources_list`, `resources_get`, `page_errors`, `page_dom`, `page_evaluate`, `page_screenshot`, `performance_metrics`, `storage_read`
 
 > `resources_list` / `resources_get` mirror the DevTools **Sources → Page** panel: `resources_list` reconstructs the frame tree and every resource that frame loaded; `resources_get` reads any resource's content by URL (equivalent to clicking a file in the panel). Two fallbacks apply when reading: first try the captured request, then re-fetch in-page, so `HEAD` probes, `Range` media requests, and bodies the browser dropped for size are all recoverable.
+
+**Interaction (real runtime input)**: `cdp_send`, `page_click`, `page_key`, `page_type`, `page_wait_for`, `page_reload`, `page_back`
+
+> `cdp_send` is a raw CDP pass-through that unlocks anything not separately wrapped (e.g. `Emulation.*`, `Page.bringToFront`, `DOM.focus`). `page_click` / `page_key` / `page_type` use genuine `Input.dispatchMouseEvent` / `Input.dispatchKeyEvent` / `Input.insertText` events — the ones games, canvas apps and video players actually honour, unlike synthetic in-page `dispatchEvent`. `page_wait_for` polls until a selector / text / predicate is true; `page_reload` / `page_back` drive navigation. `browser_launch` accepts `emulateVisible` (keeps the page in the active lifecycle so headless rAF / game loops keep running) and `page_evaluate` exposes `timeoutMs`.
 >
 > **Text mojibake fallback**: when the server sends no `charset`, the browser decodes by its locale default (GBK on Chinese Windows — a **lossy** transform), turning Chinese into garbage. `network_body` / `resources_get` first try a reversible single-byte restore, then fall back to an in-page `fetch()` that re-decodes as UTF-8 per the WHATWG spec, guaranteeing the correct original.
 >
@@ -251,6 +257,7 @@ Channel reference:
 > 🇨🇳 **中文**：
 > **浏览器**：`browser_list_processes`、`browser_installed`、`browser_discover`、`browser_launch`、`browser_connect`、`browser_close`、`target_list`、`target_select`、`session_info`、`session_dump`。`target_list` 默认只列真实网页，折叠 Edge/Chrome 自带扩展页、service worker、offscreen 文档；`includeBackground:true` 看全量，过滤到空会自动回退全量。
 > **内容抓取**：`console_read`、`console_clear`、`network_list`、`network_detail`、`network_body`、`network_clear`、`resources_list`、`resources_get`、`page_errors`、`page_dom`、`page_evaluate`、`page_screenshot`、`performance_metrics`、`storage_read`。`resources_list`/`resources_get` 对应 Sources → 页面面板，取值有两层兜底（先抓请求、失败页内重拉），并含文本乱码兜底与半截内容兜底。
+> **实时交互（真实运行时输入）**：`cdp_send`、`page_click`、`page_key`、`page_type`、`page_wait_for`、`page_reload`、`page_back`。`cdp_send` 是任意 CDP 命令透传；`page_click`/`page_key`/`page_type` 走真正的 `Input.dispatch*` 事件（游戏/Canvas/视频能识别，而页内合成的 `dispatchEvent` 识别不了）；`page_wait_for` 等选择器/文本/条件成立；`page_reload`/`page_back` 驱动导航；`browser_launch` 的 `emulateVisible` 让无头页面保持活跃（rAF/游戏循环不被冻结），`page_evaluate` 暴露 `timeoutMs`。
 > **抓取与归档**：`capture_start`、`capture_status`、`capture_stop`、`capture_save`、`capture_list_saved`。**实时**：`events_subscribe`、`events_wait`、`events_read`、`events_unsubscribe`、`events_list`、`recording_start`、`recording_stop`。
 
 ---

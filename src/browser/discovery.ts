@@ -36,7 +36,7 @@ export async function discoverBrowsers(
 ): Promise<DiscoveredBrowser[]> {
   const host = options.host ?? '127.0.0.1';
   const from = options.from ?? 9222;
-  const to = options.to ?? 9235;
+  const to = options.to ?? 9400;
   const extra = options.ports ?? [];
   const ports = Array.from(new Set([...extra, ...range(from, to)]));
   const concurrency = Math.max(1, options.concurrency ?? 12);

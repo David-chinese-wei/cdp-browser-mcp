@@ -70,11 +70,11 @@ export function registerBrowserTools(server: McpServer, hub: BrowserHub): void {
     'browser_discover',
     {
       title: '扫描调试端口',
-      description: '扫描本机的 DevTools HTTP 端点（默认 9222–9235），找出已经开启远程调试的浏览器。',
+      description: '扫描本机的 DevTools HTTP 端点（默认 9222–9400），找出已经开启远程调试的浏览器。',
       inputSchema: {
         host: z.string().optional().describe('目标主机，默认 127.0.0.1'),
         from: z.number().int().optional().describe('起始端口，默认 9222'),
-        to: z.number().int().optional().describe('结束端口，默认 9235'),
+        to: z.number().int().optional().describe('结束端口，默认 9400'),
         ports: z.array(z.number().int()).optional().describe('额外要探测的端口'),
       },
     },
@@ -115,6 +115,7 @@ export function registerBrowserTools(server: McpServer, hub: BrowserHub): void {
         attach: z.boolean().optional().describe('是否启动后自动附加会话，默认 true'),
         targetId: z.string().optional().describe('附加后要切换到的标签页'),
         watchAllTargets: z.boolean().optional().describe('是否为所有标签页（含之后新开的）都开启抓取，默认 false'),
+        emulateVisible: z.boolean().optional().describe('强制页面报告为可见（覆盖 headless 下的 hidden 状态），便于测试运行时逻辑/动画/游戏循环'),
       },
     },
     async (args) =>
@@ -132,6 +133,7 @@ export function registerBrowserTools(server: McpServer, hub: BrowserHub): void {
           attach: args.attach,
           targetId: args.targetId,
           watchAllTargets: args.watchAllTargets,
+          emulateVisible: args.emulateVisible,
         });
         return ok({
           launched,
@@ -156,6 +158,7 @@ export function registerBrowserTools(server: McpServer, hub: BrowserHub): void {
           .boolean()
           .optional()
           .describe('连到浏览器后是否为所有标签页（含之后新开的）都开启抓取，默认 false 只抓当前页'),
+        emulateVisible: z.boolean().optional().describe('强制页面报告为可见（覆盖 headless 下的 hidden 状态）'),
       },
     },
     async (args) =>
@@ -167,6 +170,7 @@ export function registerBrowserTools(server: McpServer, hub: BrowserHub): void {
           targetId: args.targetId,
           autoAttach: args.autoAttach,
           watchAllTargets: args.watchAllTargets,
+          emulateVisible: args.emulateVisible,
         });
         return ok({
           ...result,

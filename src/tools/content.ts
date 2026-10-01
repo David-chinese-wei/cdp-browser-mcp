@@ -290,6 +290,7 @@ export function registerContentTools(server: McpServer, hub: BrowserHub): void {
         expression: z.string().describe('要执行的 JS 表达式或语句'),
         awaitPromise: z.boolean().optional().describe('是否等待返回的 Promise，默认 true'),
         returnByValue: z.boolean().optional().describe('是否按值返回，默认 true'),
+        timeoutMs: z.number().int().optional().describe('执行超时（毫秒），默认 30000；长任务可调大避免被砍断'),
       },
     },
     async (args) =>
@@ -298,6 +299,7 @@ export function registerContentTools(server: McpServer, hub: BrowserHub): void {
         const result = await session.evaluate(args.expression, {
           awaitPromise: args.awaitPromise,
           returnByValue: args.returnByValue,
+          timeoutMs: args.timeoutMs,
         });
         return ok({
           expression: args.expression,

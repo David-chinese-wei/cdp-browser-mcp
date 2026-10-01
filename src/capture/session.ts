@@ -42,6 +42,8 @@ export interface SessionOptions {
   storeLimits?: Partial<StoreLimits>;
   /** Keep adding domains to every page target that appears, not just the active one. */
   watchAllTargets?: boolean;
+  /** Keep the page active/visible (Page.setWebLifecycleState + anti-backgrounding flags) so headless still runs rAF / game loops. */
+  emulateVisible?: boolean;
 }
 
 export interface EvaluateResult {
@@ -129,6 +131,7 @@ export class DevToolsSession {
   private activeTargetId: string | null = null;
   private closed = false;
   private readonly watchAllTargets: boolean;
+  private readonly emulateVisible: boolean;
   private metricsTimer: NodeJS.Timeout | null = null;
   private metricsInterval = 1000;
   private screencastOptions: ScreencastOptions | null = null;
@@ -137,6 +140,7 @@ export class DevToolsSession {
     this.client = client;
     this.store = new CaptureStore(options.storeLimits);
     this.watchAllTargets = Boolean(options.watchAllTargets);
+    this.emulateVisible = Boolean(options.emulateVisible);
     this.meta = {
       sessionId: nextId('sess'),
       browser: options.browser,
@@ -383,6 +387,22 @@ export class DevToolsSession {
     } catch (err) {
       this.warnings.push(`Network.enable failed: ${(err as Error).message}`);
     }
+
+    // Keep the page in the "active" lifecycle state so headless / backgrounded tabs
+    // keep firing requestAnimationFrame, timers and the render/game loop instead of
+    // being frozen. Chrome removed `Emulation.setPageVisibilityOverride` (and
+    // `Emulation.enable`) in recent builds, so `Page.setWebLifecycleState` is the
+    // supported replacement; the anti-backgrounding launch flags
+    // (`--disable-renderer-backgrounding`, `--disable-backgrounding-occluded-windows`,
+    // `--disable-background-timer-throttling`) reinforce the same goal.
+    if (this.emulateVisible) {
+      try {
+        await this.client.send('Page.setWebLifecycleState', { state: 'active' }, { sessionId, timeoutMs: 5000 });
+      } catch (err) {
+        this.warnings.push(`emulateVisible 失败 (Page.setWebLifecycleState): ${(err as Error).message}`);
+      }
+    }
+
     if (!runtime) {
       throw new Error(
         '该标签页不响应 CDP 会话命令（Runtime.enable 超时）。浏览器本身连上了，但它的页面不接受调试指令 —— 例如 Vivaldi 在有头模式下就是这样，改用 headless 即可正常抓取。',
@@ -1296,6 +1316,139 @@ export class DevToolsSession {
     return null;
   }
 
+  // --------------------------------------------------- input & raw CDP pass-through
+
+  /**
+   * Send any CDP command, optionally scoped to a page session. With `browserLevel`
+   * the command goes to the browser root (no sessionId) — useful for `Target.*`,
+   * `Browser.*`, `Emulation.*` at the browser scope, etc.
+   */
+  async cdpSend(
+    method: string,
+    params: Record<string, unknown> = {},
+    options: { sessionId?: string; browserLevel?: boolean; timeoutMs?: number } = {},
+  ): Promise<unknown> {
+    const sessionId = options.browserLevel ? undefined : (options.sessionId ?? this.requireSession());
+    return this.client.send(method, params, { sessionId, timeoutMs: options.timeoutMs });
+  }
+
+  /**
+   * Click at viewport coordinates, or resolve a CSS `selector` to its center first.
+   * Uses real `Input.dispatchMouseEvent` (press + release) so the page treats it as
+   * a genuine mouse action — synthesized `dispatchEvent` calls are ignored by many
+   * engines (games, canvas apps).
+   */
+  async mouseClick(opts: {
+    x?: number;
+    y?: number;
+    selector?: string;
+    button?: 'left' | 'middle' | 'right';
+    clickCount?: number;
+    double?: boolean;
+  }): Promise<{ x: number; y: number }> {
+    const sessionId = this.requireSession();
+    let x = opts.x;
+    let y = opts.y;
+
+    if (opts.selector) {
+      const rect = await this.evaluate(
+        `(() => { const el = document.querySelector(${JSON.stringify(opts.selector)}); if (!el) return null; el.scrollIntoView({ block: 'center', inline: 'center' }); const r = el.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; })()`,
+        { awaitPromise: false, timeoutMs: 5000 },
+      );
+      const rc = rect?.value as { x: number; y: number } | null;
+      if (!rc) throw new Error(`找不到匹配选择器 "${opts.selector}" 的元素`);
+      x = rc.x;
+      y = rc.y;
+    }
+    if (typeof x !== 'number' || typeof y !== 'number') {
+      throw new Error('需要提供 x/y 坐标或 selector');
+    }
+
+    const button = opts.button ?? 'left';
+    const clickCount = opts.double ? 2 : opts.clickCount ?? 1;
+    const buttons = button === 'right' ? 2 : button === 'middle' ? 4 : 1;
+
+    await this.client.send(
+      'Input.dispatchMouseEvent',
+      { type: 'mousePressed', x, y, button, clickCount, buttons },
+      { sessionId },
+    );
+    await sleep(40);
+    await this.client.send(
+      'Input.dispatchMouseEvent',
+      { type: 'mouseReleased', x, y, button, clickCount, buttons: 0 },
+      { sessionId },
+    );
+    return { x, y };
+  }
+
+  /**
+   * Real keyboard input through `Input.dispatchKeyEvent`. `action` controls whether
+   * to press-and-release (default), send only keyDown (hold), or only keyUp (release)
+   * — the latter two let a caller hold a movement key down across multiple frames.
+   */
+  async keyDispatch(opts: {
+    key: string;
+    code?: string;
+    modifiers?: number;
+    action?: 'press' | 'down' | 'up';
+  }): Promise<void> {
+    const sessionId = this.requireSession();
+    const code = opts.code ?? normalizeCode(opts.key);
+    const modifiers = opts.modifiers ?? 0;
+    const action = opts.action ?? 'press';
+
+    if (action === 'up') {
+      await this.client.send('Input.dispatchKeyEvent', { type: 'keyUp', key: opts.key, code, modifiers }, { sessionId });
+      return;
+    }
+    await this.client.send('Input.dispatchKeyEvent', { type: 'keyDown', key: opts.key, code, modifiers }, { sessionId });
+    if (action === 'press') {
+      await this.client.send('Input.dispatchKeyEvent', { type: 'keyUp', key: opts.key, code, modifiers }, { sessionId });
+    }
+  }
+
+  /** Insert text as if typed, via `Input.insertText` (IME-independent). */
+  async typeText(text: string): Promise<void> {
+    const sessionId = this.requireSession();
+    await this.client.send('Input.insertText', { text }, { sessionId });
+  }
+
+  /** Reload the current page through `Page.reload`. */
+  async reload(): Promise<void> {
+    const sessionId = this.requireSession();
+    await this.client.send('Page.reload', {}, { sessionId, timeoutMs: 30_000 });
+  }
+
+  /** Go back in history (`history.back()`). */
+  async navigateBack(): Promise<void> {
+    await this.evaluate('history.back()', { awaitPromise: false, timeoutMs: 5000 }).catch(() => undefined);
+  }
+
+  /**
+   * Poll the page until a selector appears, text is found, or a predicate returns
+   * truthy. Replaces hand-rolled fixed sleeps with a real readiness wait.
+   */
+  async waitFor(opts: {
+    selector?: string;
+    text?: string;
+    predicate?: string;
+    timeoutMs?: number;
+    pollMs?: number;
+  }): Promise<{ matched: boolean; timedOut: boolean; kind?: string }> {
+    const timeoutMs = opts.timeoutMs ?? 10_000;
+    const pollMs = Math.max(50, opts.pollMs ?? 250);
+    const deadline = Date.now() + timeoutMs;
+    const expr = buildWaitExpression(opts);
+
+    while (Date.now() < deadline) {
+      const res = await this.evaluate(expr, { awaitPromise: false, timeoutMs: pollMs + 1000 });
+      if (res?.value === true) return { matched: true, timedOut: false };
+      await sleep(pollMs);
+    }
+    return { matched: false, timedOut: true, kind: opts.selector ? 'selector' : opts.text ? 'text' : 'predicate' };
+  }
+
   clear(): void {
     this.store.clear();
   }
@@ -1604,4 +1757,47 @@ function imageSize(base64: string, format: string): { width: number; height: num
     /* ignore malformed payloads */
   }
   return undefined;
+}
+
+/** Map a human key name to a CDP `code` (e.g. 'd' -> 'KeyD', 'ArrowUp' -> 'ArrowUp'). */
+function normalizeCode(key: string): string {
+  if (key.length === 1) {
+    if (/[a-zA-Z]/.test(key)) return `Key${key.toUpperCase()}`;
+    if (/[0-9]/.test(key)) return `Digit${key}`;
+    if (key === ' ') return 'Space';
+  }
+  const map: Record<string, string> = {
+    Enter: 'Enter',
+    Escape: 'Escape',
+    Tab: 'Tab',
+    Backspace: 'Backspace',
+    Delete: 'Delete',
+    ArrowUp: 'ArrowUp',
+    ArrowDown: 'ArrowDown',
+    ArrowLeft: 'ArrowLeft',
+    ArrowRight: 'ArrowRight',
+    Shift: 'ShiftLeft',
+    Control: 'ControlLeft',
+    Alt: 'AltLeft',
+    Meta: 'MetaLeft',
+    CapsLock: 'CapsLock',
+    Space: 'Space',
+  };
+  return map[key] ?? key;
+}
+
+/** Build the page-side expression used by `waitFor`. */
+function buildWaitExpression(opts: {
+  selector?: string;
+  text?: string;
+  predicate?: string;
+}): string {
+  if (opts.selector) {
+    return `(() => !!document.querySelector(${JSON.stringify(opts.selector)}))()`;
+  }
+  if (opts.text) {
+    return `(() => { try { const n = document.body || document.documentElement; return (n ? n.innerText : '').includes(${JSON.stringify(opts.text)}); } catch { return false; } })()`;
+  }
+  // `predicate` is a JS expression (or an IIFE such as `(() => window.ready)()`).
+  return `(() => { try { return (${opts.predicate}); } catch { return false; } })()`;
 }
