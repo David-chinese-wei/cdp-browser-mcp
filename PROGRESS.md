@@ -181,7 +181,7 @@ npm run acceptance:edge  # Edge 专项：有头模式、进程枚举识别 msedg
 - 线上验证：`npm view cdp-browser-mcp` 正常返回；干净目录 `npm install cdp-browser-mcp` 安装成功，bin `cdp-browser-mcp` 可用。
 - 注意：原 `browser-devtools-mcp` 名已被占（废弃包），故改名发布。
 
-## 本轮：补齐"真实运行时交互"能力（2026-09-28）
+## 本轮：补齐"真实运行时交互"能力（2026-10-01）
 
 用户读源码后给出差距清单（P0/P1/P2），要求"有问题修吧"。已完成 P0 + P1，并顺带实现 P2 里的 `page_reload` / `page_back`。工具数 36 → 43（+7：`cdp_send` / `page_click` / `page_key` / `page_type` / `page_wait_for` / `page_reload` / `page_back`）。
 
@@ -217,3 +217,15 @@ npm run acceptance:edge  # Edge 专项：有头模式、进程枚举识别 msedg
 - `network_block` / `network_mock`（Network domain 拦截与桩数据）
 - `page_screenshot` 的 `clip` 参数（裁剪区域）
 - 这些可按需再加；已实现的 `cdp_send` 已能直接发 `Network.setBlockedURLs` / `Page.captureScreenshot({clip})` 等命令作为临时手段。
+
+### 发布 0.2.0（2026-10-01）
+
+- **GitHub**：`git push origin master` 成功（`24d6bb9..843579c`），走 `127.0.0.1:7897` 代理。
+- **npm**：`npm publish` 成功，**`cdp-browser-mcp@0.2.0`**（tarball 130.7 kB / 78 文件）。复用了本机已有的 npm 登录态，无需新 token。
+- **线上验证**（干净临时目录）：`npm install cdp-browser-mcp@0.2.0` 成功；MCP 协议层 `tools/list` 返回 **43 个工具**，7 个新工具齐全；`browser_launch({emulateVisible:true})` / `page_click` / `page_reload` 真实调用均成功。
+
+### 发布踩坑（npm registry 延迟与缓存）
+
+1. `npm publish` 返回成功后，**registry 需约 2–3 分钟才可查询**。期间 `npm view` / `npm install` 报 `No matching version found` 属正常延迟，不是失败。
+2. **`npm view` 读本地 packument 缓存**，缓存未刷新时看不到已上线的新版本。绕过：`curl https://registry.npmjs.org/<pkg>` 直查，或安装加 `--cache <全新目录> --prefer-online`。
+3. **`npm cache clean --force` 在本机不可用**：被安全中心拦截并触发 WorkBuddy 回收站工具 `genie-trash.exe`，报 `ETIMEDOUT`。改用独立 `--cache` 目录。
