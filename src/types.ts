@@ -29,6 +29,8 @@ export interface DiscoveredBrowser {
   webSocketDebuggerUrl: string;
   userAgent?: string;
   targets: number;
+  /** Populated when the browser can tell us it's running headless; inferred elsewhere. */
+  headless?: boolean;
 }
 
 export type ConsoleLevel =

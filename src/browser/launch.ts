@@ -6,6 +6,44 @@ import net from 'node:net';
 import { findInstalledBrowser, type BrowserKind } from './install.js';
 import { getBrowserWebSocketUrl, probePort } from './discovery.js';
 
+/**
+ * Detects whether the current environment requires Chromium sandbox bypass flags.
+ * Returns an object describing which runtime-context flags should be auto-appended.
+ */
+interface RuntimeHints {
+  /** Running as uid 0 — Chrome refuses to launch unless --no-sandbox is present. */
+  isRoot: boolean;
+  /** Likely inside a container (Docker/Podman/Kubernetes/LXC) where /dev/shm is tiny. */
+  isContainer: boolean;
+  /** /usr/bin/Xvfb or similar virtual display likely absent — headless mode safer. */
+  noDisplay: boolean;
+}
+
+let cachedRuntimeHints: RuntimeHints | null = null;
+
+function detectRuntimeHints(): RuntimeHints {
+  if (cachedRuntimeHints) return cachedRuntimeHints;
+
+  const isRoot = process.platform !== 'win32' && process.getuid?.() === 0;
+
+  // Container detection: several cheap signals, any one is enough.
+  const env = process.env;
+  const isContainer =
+    process.platform !== 'win32' &&
+    (existsSync('/.dockerenv') ||
+      existsSync('/run/.containerenv') ||
+      Boolean(env.DOCKER) ||
+      Boolean(env.KUBERNETES_SERVICE_HOST) ||
+      Boolean(env.PODMAN) ||
+      Boolean(env.CONTAINER));
+
+  // DISPLAY unset on unix → headed mode will fail; headless is the safe default.
+  const noDisplay = process.platform !== 'win32' && !env.DISPLAY && !env.WAYLAND_DISPLAY;
+
+  cachedRuntimeHints = { isRoot, isContainer, noDisplay };
+  return cachedRuntimeHints;
+}
+
 export interface LaunchOptions {
   /** Which browser to start. Defaults to the first one installed. */
   kind?: BrowserKind;
@@ -88,7 +126,7 @@ export class BrowserLauncher {
           userDataDir: existing.browser,
           webSocketDebuggerUrl: existing.webSocketDebuggerUrl || (await getBrowserWebSocketUrl(options.port, host)),
           temporaryProfile: false,
-          headless: Boolean(options.headless),
+          headless: existing.headless ?? Boolean(options.headless),
         };
       }
     }
@@ -96,6 +134,23 @@ export class BrowserLauncher {
     const port = options.port ?? (await pickFreePort(host));
     const temporaryProfile = !options.userDataDir;
     const userDataDir = options.userDataDir ?? createProfileDir();
+
+    const hints = detectRuntimeHints();
+
+    // Auto flags that the runtime *requires* — always included (deduped below).
+    const runtimeArgs: string[] = [];
+    if (hints.isRoot) runtimeArgs.push('--no-sandbox');
+    if (hints.isContainer || hints.noDisplay) runtimeArgs.push('--disable-dev-shm-usage');
+    if (hints.isContainer || hints.noDisplay) runtimeArgs.push('--disable-gpu');
+
+    // Effective headless: either user asked for it, or there's no display server.
+    const effectiveHeadless = Boolean(options.headless) || hints.noDisplay;
+    if (hints.noDisplay && !options.headless) {
+      // If the user didn't opt in but we have no DISPLAY, force headless and warn below.
+      console.warn(
+        `[BrowserLauncher] No DISPLAY detected — forcing --headless. Set DISPLAY or pass headless:false explicitly if you have Xvfb/Wayland.`,
+      );
+    }
 
     const args: string[] = [
       `--remote-debugging-port=${port}`,
@@ -111,13 +166,27 @@ export class BrowserLauncher {
       '--metrics-recording-only',
       '--mute-audio',
       '--window-size=1440,900',
+      ...runtimeArgs,
       ...(options.emulateVisible ? ['--disable-backgrounding-occluded-windows'] : []),
-      ...(options.headless ? ['--headless=new'] : []),
+      ...(effectiveHeadless ? ['--headless=new'] : []),
+      // User-supplied args come last so they can override any defaults above.
       ...(options.args ?? []),
     ];
-    if (options.url) args.push(options.url);
 
-    const child = spawn(executable, args, {
+    // Dedupe so duplicate --no-sandbox etc. don't crash Chrome (first wins).
+    const seen = new Set<string>();
+    const dedupedArgs: string[] = [];
+    for (const arg of args) {
+      const key = arg.split('=', 1)[0];
+      if (!seen.has(key)) {
+        seen.add(key);
+        dedupedArgs.push(arg);
+      }
+    }
+
+    if (options.url) dedupedArgs.push(options.url);
+
+    const child = spawn(executable, dedupedArgs, {
       detached: true,
       stdio: 'ignore',
       windowsHide: true,
@@ -153,7 +222,7 @@ export class BrowserLauncher {
       userDataDir,
       webSocketDebuggerUrl,
       temporaryProfile,
-      headless: Boolean(options.headless),
+      headless: effectiveHeadless,
       child,
       keepProfile: Boolean(options.keepProfile),
     };
